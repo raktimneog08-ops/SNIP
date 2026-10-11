@@ -1,0 +1,22 @@
+{
+  "name": "snip-chrome-agent",
+  "version": "1.0.0",
+  "description": "Snip: A Chrome side-panel AI agent for understanding web pages and safe, human-in-the-loop browser actions.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/unit/*.test.js",
+    "package": "node scripts/build-package.js",
+    "generate-icons": "node scripts/generate-icons.js"
+  },
+  "keywords": [
+    "chrome-extension",
+    "side-panel",
+    "ai-agent",
+    "gemini",
+    "browser-automation",
+    "readability",
+    "human-in-the-loop"
+  ],
+  "author": "Snip Project",
+  "license": "MIT"
+}

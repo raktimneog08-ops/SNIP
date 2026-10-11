@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snip - Chrome Side-Panel AI Agent</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+
+  <!-- Top Application Header -->
+  <header class="app-header">
+    <div class="brand">
+      <img src="../icons/icon48.png" alt="Snip" class="brand-icon">
+      <span class="brand-title">Snip</span>
+    </div>
+    <div class="header-controls">
+      <span id="safety-indicator" class="safety-pill" title="Safety Guard Active">
+        🛡️ Protected
+      </span>
+      <button id="lang-toggle-btn" class="lang-toggle-btn" title="Toggle English / Hinglish">
+        🌐 EN
+      </button>
+      <button id="header-settings-btn" class="icon-btn" title="Extension Settings">
+        ⚙️
+      </button>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <nav class="nav-tabs" role="tablist">
+    <button class="tab-btn active" data-tab="summarize" title="Summarize">
+      <span class="tab-icon">📝</span>
+      <span>Summary</span>
+    </button>
+    <button class="tab-btn" data-tab="chat" title="Page Chat">
+      <span class="tab-icon">💬</span>
+      <span>Chat</span>
+    </button>
+    <button class="tab-btn" data-tab="agent" title="Browser Agent">
+      <span class="tab-icon">🤖</span>
+      <span>Agent</span>
+    </button>
+    <button class="tab-btn" data-tab="vision" title="Screen Vision">
+      <span class="tab-icon">👁️</span>
+      <span>Vision</span>
+    </button>
+    <button class="tab-btn" data-tab="profile" title="Profile & Autofill">
+      <span class="tab-icon">👤</span>
+      <span>Profile</span>
+    </button>
+    <button class="tab-btn" data-tab="skills" title="One-Click Skills">
+      <span class="tab-icon">⚡</span>
+      <span>Skills</span>
+    </button>
+    <button class="tab-btn" data-tab="settings" title="Settings">
+      <span class="tab-icon">⚙️</span>
+      <span>Settings</span>
+    </button>
+  </nav>
+
+  <!-- Content Panes -->
+  <main class="app-content">
+
+    <!-- 1. SUMMARIZE TAB -->
+    <section id="pane-summarize" class="tab-pane active">
+      <!-- Setup API Key Prompt (shown when key is not configured) -->
+      <div id="api-key-banner" class="card" style="display: none; background: #eef2ff; border-color: #c7d2fe; padding: 10px; margin-bottom: 10px;">
+        <div style="font-weight: 700; color: var(--primary); margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+          🔑 Setup Gemini API Key
+        </div>
+        <p style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 8px;">
+          To summarize pages, chat, and use the agent, please configure your free Gemini API key in Settings.
+        </p>
+        <button id="btn-goto-settings" class="btn btn-primary btn-sm btn-block">
+          ⚙️ Open Settings
+        </button>
+      </div>
+
+      <!-- Internal URL notification -->
+      <div id="internal-page-banner" class="card" style="display: none; background: #fffbeb; border-color: #fde68a; padding: 10px; margin-bottom: 10px;">
+        <div style="font-weight: 700; color: #92400e; margin-bottom: 4px;">
+          ℹ️ Browser System Page Detected
+        </div>
+        <p style="font-size: 11.5px; color: #78350f;">
+          Chrome prevents extensions from reading internal browser pages (like <code>chrome://extensions</code>). Open any normal website (e.g. Wikipedia, a news article, or YouTube) to test Snip!
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>Read & Summarize</span>
+          <span id="active-page-title" class="text-muted" style="font-size: 11px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
+        </div>
+        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+          <button id="btn-summarize-page" class="btn btn-primary" style="flex: 1;">
+            📄 Summarize Article
+          </button>
+          <button id="btn-explain-selection" class="btn btn-outline" style="flex: 1;" title="Explain currently selected text on page">
+            ✨ Explain Selection
+          </button>
+        </div>
+
+        <!-- YouTube detection banner -->
+        <div id="yt-banner" class="card" style="display: none; background: #fff1f2; border-color: #fecdd3; margin-top: 8px;">
+          <div style="font-size: 12px; font-weight: 700; color: #9f1239; margin-bottom: 6px;">
+            ▶️ YouTube Video Detected
+          </div>
+          <button id="btn-summarize-yt" class="btn btn-danger btn-block btn-sm">
+            Summarize Video with Timestamps
+          </button>
+        </div>
+      </div>
+
+      <!-- Summary Output Box -->
+      <div class="card">
+        <div class="card-title">
+          <span>Output</span>
+          <button id="btn-copy-summary" class="btn btn-outline btn-sm" style="display: none;">Copy</button>
+        </div>
+        <div id="summary-output" class="summary-container" style="min-height: 120px; line-height: 1.5;">
+          <p class="text-muted" style="text-align: center; padding: 20px 0;">
+            Click <strong>Summarize Article</strong> to extract key points or highlight text and click <strong>Explain Selection</strong>.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. CHAT TAB -->
+    <section id="pane-chat" class="tab-pane">
+      <div class="chat-window">
+        <div id="chat-messages" class="chat-messages">
+          <div class="chat-bubble model">
+            👋 Hi! I'm <strong>Snip</strong>. Ask me anything about this page. I answer strictly based on the page context with zero external hallucinations!
+          </div>
+        </div>
+        <div class="chat-input-bar">
+          <input type="text" id="chat-input" class="form-input" placeholder="Ask about this page..." />
+          <button id="btn-chat-send" class="btn btn-primary">Send</button>
+          <button id="btn-chat-clear" class="btn btn-outline" title="Clear Chat">🗑️</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. AGENT TAB -->
+    <section id="pane-agent" class="tab-pane">
+      <div class="card">
+        <div class="card-title">
+          <span>Browser Action Agent</span>
+          <span id="elements-count-badge" class="badge" style="font-size: 11px; color: var(--text-muted);">0 elements</span>
+        </div>
+        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">
+          Snip detects interactive buttons, links, and forms, turning them into a numbered Action Map with human approval at every step.
+        </p>
+
+        <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+          <button id="btn-scan-elements" class="btn btn-outline" style="flex: 1;">
+            🔍 Scan Elements
+          </button>
+          <button id="btn-clear-overlay" class="btn btn-outline" style="flex: 1;">
+            ✕ Clear Badges
+          </button>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="agent-goal-input">Your Goal on this Page:</label>
+          <textarea id="agent-goal-input" class="form-textarea" placeholder="e.g. Fill the contact form with my details and submit"></textarea>
+        </div>
+
+        <button id="btn-start-agent" class="btn btn-primary btn-block">
+          🚀 Propose Next Step
+        </button>
+      </div>
+
+      <!-- Action Proposal Card (Human In The Loop) -->
+      <div id="action-proposal-card" class="action-proposal-card" style="display: none;">
+        <div class="proposal-header">
+          <span class="proposal-badge" id="proposal-action-type">CLICK</span>
+          <span style="font-size: 11px; font-weight: 700; color: var(--text-muted);" id="proposal-element-target">Element #1</span>
+        </div>
+        <div class="proposal-details">
+          <p id="proposal-rationale" style="margin-bottom: 6px; font-weight: 500;"></p>
+          <div id="proposal-value-box" style="display: none; background: var(--bg-card); padding: 4px 6px; border-radius: 4px; border: 1px solid var(--border); font-family: monospace;"></div>
+        </div>
+        <div class="proposal-controls">
+          <button id="btn-approve-action" class="btn btn-success" style="flex: 2;">
+            ✅ Approve &amp; Execute
+          </button>
+          <button id="btn-skip-action" class="btn btn-outline" style="flex: 1;">
+            ⏭️ Skip
+          </button>
+          <button id="btn-stop-action" class="btn btn-danger" style="flex: 1;">
+            🛑 Stop
+          </button>
+        </div>
+      </div>
+
+      <!-- Action Audit Log -->
+      <div class="card" style="margin-top: 12px;">
+        <div class="card-title">
+          <span>Action Audit Log</span>
+          <button id="btn-clear-log" class="btn btn-outline btn-sm">Clear</button>
+        </div>
+        <div id="action-log-container" style="max-height: 180px; overflow-y: auto;">
+          <p class="text-muted" style="text-align: center; padding: 10px 0; font-size: 11.5px;">
+            No actions executed yet.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. VISION TAB -->
+    <section id="pane-vision" class="tab-pane">
+      <div class="card">
+        <div class="card-title">
+          <span>Screen Vision Q&amp;A</span>
+        </div>
+        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">
+          Capture visible screen content to read diagrams, charts, UI widgets, or non-text content using Gemini Vision.
+        </p>
+
+        <button id="btn-capture-screen" class="btn btn-primary btn-block" style="margin-bottom: 10px;">
+          📸 Capture Active Screen
+        </button>
+
+        <div id="vision-preview-container" style="display: none; text-align: center;">
+          <img id="vision-preview-img" class="vision-preview-img" alt="Captured Screen" />
+        </div>
+
+        <div class="form-group" style="margin-top: 8px;">
+          <label class="form-label" for="vision-question-input">Ask about this screenshot:</label>
+          <input type="text" id="vision-question-input" class="form-input" placeholder="e.g. What does this graph show?" />
+        </div>
+
+        <button id="btn-ask-vision" class="btn btn-success btn-block" style="display: none;">
+          Ask Gemini Vision
+        </button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Vision Answer</div>
+        <div id="vision-output" style="min-height: 80px; font-size: 12.5px; line-height: 1.5;">
+          <p class="text-muted" style="text-align: center; padding: 15px 0;">
+            Capture screen to start visual reasoning.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. PROFILE TAB -->
+    <section id="pane-profile" class="tab-pane">
+      <div class="card">
+        <div class="card-title">
+          <span>Local User Profile</span>
+          <button id="btn-quick-autofill" class="btn btn-success btn-sm">
+            ⚡ Autofill Active Form
+          </button>
+        </div>
+        <p style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 10px;">
+          Stored 100% locally on your computer in <code>chrome.storage.local</code>. Never synced to external servers. Reusable for safe form autofilling.
+        </p>
+
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input type="text" id="prof-fullName" class="form-input" placeholder="Jane Doe" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" id="prof-email" class="form-input" placeholder="jane@example.com" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone Number</label>
+          <input type="tel" id="prof-phone" class="form-input" placeholder="+1 (555) 019-2834" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Street Address</label>
+          <input type="text" id="prof-addressLine1" class="form-input" placeholder="123 Market St" />
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label">City</label>
+            <input type="text" id="prof-city" class="form-input" placeholder="San Francisco" />
+          </div>
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label">Postal / Zip Code</label>
+            <input type="text" id="prof-zipCode" class="form-input" placeholder="94105" />
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label">Job Title</label>
+            <input type="text" id="prof-jobTitle" class="form-input" placeholder="Software Engineer" />
+          </div>
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label">Company</label>
+            <input type="text" id="prof-company" class="form-input" placeholder="Acme Inc." />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Bio / Background</label>
+          <textarea id="prof-bio" class="form-textarea" placeholder="Brief background summary..."></textarea>
+        </div>
+
+        <button id="btn-save-profile" class="btn btn-primary btn-block">
+          💾 Save Profile Locally
+        </button>
+      </div>
+    </section>
+
+    <!-- 6. SKILLS TAB -->
+    <section id="pane-skills" class="tab-pane">
+      <div class="card">
+        <div class="card-title">
+          <span>Saved One-Click Skills</span>
+        </div>
+        <p style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 10px;">
+          Pre-built and custom shortcuts to quickly analyze or act on the current page.
+        </p>
+        <div id="skills-list" style="display: flex; flex-direction: column; gap: 8px;"></div>
+      </div>
+
+      <!-- Add Custom Skill Card -->
+      <div class="card">
+        <div class="card-title">Create Custom Skill</div>
+        <div class="form-group">
+          <label class="form-label">Skill Title</label>
+          <input type="text" id="skill-title-input" class="form-input" placeholder="e.g. Extract Meeting Notes" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Custom Prompt Instruction</label>
+          <textarea id="skill-prompt-input" class="form-textarea" placeholder="Instructions for Gemini on page content..."></textarea>
+        </div>
+        <button id="btn-add-skill" class="btn btn-outline btn-block">
+          ➕ Save Custom Skill
+        </button>
+      </div>
+    </section>
+
+    <!-- 7. SETTINGS TAB -->
+    <section id="pane-settings" class="tab-pane">
+      <div class="card">
+        <div class="card-title">Extension Settings</div>
+
+        <div class="form-group">
+          <label class="form-label" for="setting-api-key">Google Gemini API Key</label>
+          <input type="password" id="setting-api-key" class="form-input" placeholder="AIzaSy..." />
+          <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">
+            Get a free key from <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: var(--primary);">Google AI Studio</a>. Stored locally.
+          </span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="setting-model-select">AI Model</label>
+          <select id="setting-model-select" class="form-select">
+            <option value="gemini-2.5-flash">Gemini 2.5 Flash (Fast &amp; Recommended)</option>
+            <option value="gemini-2.0-flash">Gemini 2.0 Flash (High Performance)</option>
+            <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite (Lightweight)</option>
+          </select>
+        </div>
+
+        <button id="btn-save-settings" class="btn btn-primary btn-block">
+          Save Settings
+        </button>
+      </div>
+
+      <div class="card" style="font-size: 12px; line-height: 1.5;">
+        <div class="card-title">About Snip</div>
+        <p><strong>Version:</strong> 1.0.0 (Manifest V3)</p>
+        <p><strong>Safety Shield:</strong> Active (Password, CVV, and Banking URL protection enforced).</p>
+        <p><strong>Privacy:</strong> All personal data &amp; keys reside strictly in Chrome local storage.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Global Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <!-- Scripts -->
+  <script type="module" src="sidepanel.js"></script>
+</body>
+</html>
